@@ -1,0 +1,101 @@
+{
+  "entities": {
+    "users": {
+      "title": "Users",
+      "description": "User profiles for marketplace buyers and sellers",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "state": { "type": "string" },
+        "district": { "type": "string" },
+        "city": { "type": "string" },
+        "verified": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "listings": {
+      "title": "Listings",
+      "description": "Auto spare parts listings for sale",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "vehicleType": { "type": "string" },
+        "make": { "type": "string" },
+        "model": { "type": "string" },
+        "year": { "type": "number" },
+        "partNumber": { "type": "string" },
+        "price": { "type": "number" },
+        "isNegotiable": { "type": "boolean" },
+        "condition": { "type": "string" },
+        "description": { "type": "string" },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "state": { "type": "string" },
+        "district": { "type": "string" },
+        "city": { "type": "string" },
+        "pincode": { "type": "string" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "sellerId": { "type": "string" },
+        "sellerName": { "type": "string" },
+        "sellerPhone": { "type": "string" },
+        "sellerPhoto": { "type": "string" },
+        "status": { "type": "string" },
+        "views": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["title", "category", "price", "sellerId"]
+    },
+    "chats": {
+      "title": "Chats",
+      "description": "Conversations between buyers and sellers",
+      "type": "object",
+      "properties": {
+        "listingId": { "type": "string" },
+        "buyerId": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "messages": {
+      "title": "Messages",
+      "description": "Individual chat messages",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "favorites": {
+      "title": "Favorites",
+      "description": "User saved/favorited listings",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "listingId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "User notifications for offers and chat messages",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      }
+    }
+  }
+}
