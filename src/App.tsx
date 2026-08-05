@@ -15,6 +15,7 @@ import { EnhancedSearchModal } from './components/EnhancedSearchModal';
 import { SplashScreen } from './components/SplashScreen';
 import { BannerCarousel } from './components/BannerCarousel';
 import { MarketplaceHomeScreen } from './components/MarketplaceHomeScreen';
+import { AdminControlPanel } from './components/AdminControlPanel';
 import { filterListings } from './utils/searchEngine';
 
 import { Listing, UserProfile, AppNotification } from './types';
@@ -31,6 +32,7 @@ import {
   auth,
   db,
   getUserProfile,
+  subscribeToUserProfile,
   logoutUser
 } from './lib/firebase';
 import { INITIAL_SAMPLE_LISTINGS } from './data/sampleListings';
@@ -95,25 +97,34 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
+    let profileUnsub: (() => void) | null = null;
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (profileUnsub) {
+        profileUnsub();
+        profileUnsub = null;
+      }
       if (firebaseUser) {
-        const profile = await getUserProfile(firebaseUser.uid);
-        if (profile) {
-          setCurrentUser(profile);
-        } else {
-          setCurrentUser({
-            uid: firebaseUser.uid,
-            displayName: firebaseUser.displayName || 'Auto Trader',
-            email: firebaseUser.email || 'trader@autopartsindia.in',
-            verified: true,
-            createdAt: new Date().toISOString()
-          });
-        }
+        profileUnsub = subscribeToUserProfile(firebaseUser.uid, (profile) => {
+          if (profile) {
+            setCurrentUser(profile);
+          } else {
+            setCurrentUser({
+              uid: firebaseUser.uid,
+              displayName: firebaseUser.displayName || 'Auto Trader',
+              email: firebaseUser.email || 'trader@autopartsindia.in',
+              verified: true,
+              createdAt: new Date().toISOString()
+            });
+          }
+        });
       } else {
         setCurrentUser(null);
       }
     });
-    return () => unsub();
+    return () => {
+      unsub();
+      if (profileUnsub) profileUnsub();
+    };
   }, []);
 
   // Active Bottom Navigation Tab
@@ -198,6 +209,7 @@ export default function App() {
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   const handleTabClick = (tab: 'home' | 'search' | 'sell' | 'chats' | 'profile') => {
     if (tab === 'search') {
@@ -341,6 +353,11 @@ export default function App() {
       return;
     }
 
+    if (currentUser.uid === listing.sellerId || (currentUser.phone && listing.sellerPhone && currentUser.phone === listing.sellerPhone)) {
+      alert('This is your own listing.');
+      return;
+    }
+
     const chatId = await getOrCreateChat(
       currentUser,
       { id: listing.sellerId, name: listing.sellerName, photo: listing.sellerPhoto },
@@ -463,6 +480,7 @@ export default function App() {
             onOpenFiltersModal={() => setShowFiltersModal(true)}
             onOpenSearchModal={() => setShowSearchModal(true)}
             onOpenProfile={() => setActiveTab('account')}
+            onOpenAdminPanel={() => setShowAdminPanel(true)}
           />
 
           {/* Category Icons Grid */}
@@ -560,7 +578,7 @@ export default function App() {
               </div>
 
               {/* Results */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-2.5">
                 {filteredListings.map((listing) => (
                   <ListingCard
                     key={listing.id}
@@ -688,8 +706,8 @@ export default function App() {
           </motion.div>
         )}
 
-        {/* Cloudinary Settings Page */}
-        {showCloudinarySettings && (
+        {/* Cloudinary Settings Page (Admin only) */}
+        {showCloudinarySettings && (auth.currentUser?.email === 'autoparts2@gmail.com' || currentUser?.email === 'autoparts2@gmail.com') && (
           <motion.div
             key="cloudinary-settings-page"
             initial={{ x: '100%' }}
@@ -818,6 +836,19 @@ export default function App() {
               onSuccess={handleAuthSuccess}
             />
           </motion.div>
+        )}
+
+        {/* Super Admin Control Panel Modal */}
+        {showAdminPanel && (
+          <AdminControlPanel
+            currentUser={currentUser}
+            listings={listings}
+            onClose={() => setShowAdminPanel(false)}
+            onSelectListing={(listing) => {
+              setSelectedListingDetail(listing);
+              setShowAdminPanel(false);
+            }}
+          />
         )}
       </AnimatePresence>
 

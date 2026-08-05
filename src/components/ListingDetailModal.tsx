@@ -23,7 +23,8 @@ import {
   ZoomOut,
   RotateCcw,
   Copy,
-  Loader2
+  Loader2,
+  UserX
 } from 'lucide-react';
 import { Listing, UserProfile } from '../types';
 import { LocationMap } from './LocationMap';
@@ -64,6 +65,11 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [activeMedia, setActiveMedia] = useState<'image' | 'video'>('image');
   const [imageLoaded, setImageLoaded] = useState<boolean>(false);
+  const isOwnListing = currentUser && (
+    currentUser.uid === listing.sellerId || 
+    (currentUser.phone && listing.sellerPhone && currentUser.phone === listing.sellerPhone)
+  );
+  const isSellerBlocked = currentUser && (currentUser.blockedUsers || []).includes(listing.sellerId);
 
   // Fullscreen Zoom & Pan States
   const [zoomScale, setZoomScale] = useState(1);
@@ -455,12 +461,28 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                 </div>
               </div>
 
-              <button
-                onClick={onStartChat}
-                className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-extrabold text-xs rounded-xl border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition-colors cursor-pointer"
-              >
-                Chat Seller
-              </button>
+              {isSellerBlocked ? (
+                <button
+                  disabled
+                  className="px-3 py-1.5 bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 font-extrabold text-xs rounded-xl border border-rose-200 dark:border-rose-800 cursor-not-allowed opacity-80"
+                >
+                  User Blocked
+                </button>
+              ) : isOwnListing ? (
+                <button
+                  disabled
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 font-extrabold text-xs rounded-xl border border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-75"
+                >
+                  Your Listing
+                </button>
+              ) : (
+                <button
+                  onClick={onStartChat}
+                  className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-extrabold text-xs rounded-xl border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition-colors cursor-pointer"
+                >
+                  Chat Seller
+                </button>
+              )}
             </div>
           </div>
 
@@ -543,13 +565,31 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
             <span>Make Offer</span>
           </button>
 
-          <button
-            onClick={onStartChat}
-            className="flex-1 py-3 px-2 sm:px-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-blue-600/20 cursor-pointer"
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span>Chat</span>
-          </button>
+          {isSellerBlocked ? (
+            <button
+              disabled
+              className="flex-1 py-3 px-2 sm:px-3 rounded-2xl bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 font-extrabold text-xs flex items-center justify-center gap-1.5 border border-rose-200 dark:border-rose-800 cursor-not-allowed opacity-80"
+            >
+              <UserX className="w-4 h-4 text-rose-500" />
+              <span>User Blocked</span>
+            </button>
+          ) : isOwnListing ? (
+            <button
+              disabled
+              className="flex-1 py-3 px-2 sm:px-3 rounded-2xl bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-extrabold text-xs flex items-center justify-center gap-1.5 border border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-80"
+            >
+              <ShieldCheck className="w-4 h-4 text-slate-400" />
+              <span>Your Listing</span>
+            </button>
+          ) : (
+            <button
+              onClick={onStartChat}
+              className="flex-1 py-3 px-2 sm:px-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-blue-600/20 cursor-pointer"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Chat</span>
+            </button>
+          )}
 
           {whatsappUrl && (
             <a

@@ -12,10 +12,14 @@ import {
   Cloud,
   Heart,
   Mic,
-  QrCode
+  QrCode,
+  ShieldCheck
 } from 'lucide-react';
 import { INDIA_STATES_DISTRICTS } from '../data/indiaLocations';
 import { UserProfile } from '../types';
+import { auth } from '../lib/firebase';
+
+import { LocationBottomSheet } from './LocationBottomSheet';
 
 interface OlxHeaderProps {
   currentUser: UserProfile | null;
@@ -35,6 +39,7 @@ interface OlxHeaderProps {
   onOpenFiltersModal: () => void;
   onOpenSearchModal?: () => void;
   onOpenProfile?: () => void;
+  onOpenAdminPanel?: () => void;
 }
 
 export const OlxHeader: React.FC<OlxHeaderProps> = ({
@@ -54,7 +59,8 @@ export const OlxHeader: React.FC<OlxHeaderProps> = ({
   onOpenCloudinarySettings,
   onOpenFiltersModal,
   onOpenSearchModal,
-  onOpenProfile
+  onOpenProfile,
+  onOpenAdminPanel
 }) => {
   const [showLocationModal, setShowLocationModal] = useState(false);
 
@@ -129,14 +135,28 @@ export const OlxHeader: React.FC<OlxHeaderProps> = ({
               )}
             </button>
 
-            {/* Cloudinary CDN settings */}
-            <button
-              onClick={onOpenCloudinarySettings}
-              className="p-2 text-slate-400 hover:text-cyan-400 hover:bg-slate-800 rounded-full transition-colors hidden sm:block"
-              title="CDN Settings"
-            >
-              <Cloud className="w-4 h-4" />
-            </button>
+            {/* Admin Control Panel Button */}
+            {(auth.currentUser?.email === 'autoparts2@gmail.com' || currentUser?.email === 'autoparts2@gmail.com') && (
+              <>
+                {onOpenAdminPanel && (
+                  <button
+                    onClick={onOpenAdminPanel}
+                    className="p-1.5 text-amber-400 hover:text-amber-300 bg-amber-950/60 hover:bg-amber-900/80 border border-amber-800/80 rounded-xl transition-all flex items-center gap-1 shadow-sm"
+                    title="Super Admin Control Panel"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-amber-400" />
+                    <span className="text-[10px] font-black hidden lg:inline uppercase tracking-wider">Admin</span>
+                  </button>
+                )}
+                <button
+                  onClick={onOpenCloudinarySettings}
+                  className="p-2 text-slate-400 hover:text-cyan-400 hover:bg-slate-800 rounded-full transition-colors hidden sm:block"
+                  title="CDN Settings"
+                >
+                  <Cloud className="w-4 h-4" />
+                </button>
+              </>
+            )}
 
             {/* Dark Mode Toggle */}
             <button
@@ -236,74 +256,15 @@ export const OlxHeader: React.FC<OlxHeaderProps> = ({
 
       </div>
 
-      {/* Location Modal Drawer */}
-      {showLocationModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in text-slate-900 dark:text-white">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-5 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
-            
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <span className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-cyan-500" /> Choose Spare Part Market
-              </span>
-              <button onClick={() => setShowLocationModal(false)} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">State / Region</label>
-                <select
-                  value={selectedState}
-                  onChange={(e) => {
-                    setSelectedState(e.target.value);
-                    setSelectedDistrict('');
-                  }}
-                  className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 font-medium outline-none focus:ring-2 focus:ring-cyan-500"
-                >
-                  <option value="">All India (28 States)</option>
-                  {Object.keys(INDIA_STATES_DISTRICTS).map(st => (
-                    <option key={st} value={st}>{st}</option>
-                  ))}
-                </select>
-              </div>
-
-              {selectedState && availableDistricts.length > 0 && (
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">District / Auto Hub</label>
-                  <select
-                    value={selectedDistrict}
-                    onChange={(e) => setSelectedDistrict(e.target.value)}
-                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 font-medium outline-none focus:ring-2 focus:ring-cyan-500"
-                  >
-                    <option value="">All Districts in {selectedState}</option>
-                    {availableDistricts.map(dist => (
-                      <option key={dist} value={dist}>{dist}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="pt-2 flex items-center gap-2">
-                <button
-                  onClick={() => { setSelectedState(''); setSelectedDistrict(''); setShowLocationModal(false); }}
-                  className="flex-1 py-2 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                >
-                  Clear Location
-                </button>
-                <button
-                  onClick={() => setShowLocationModal(false)}
-                  className="flex-1 py-2 text-xs font-extrabold bg-cyan-500 hover:bg-cyan-600 text-slate-950 rounded-xl shadow-xs cursor-pointer transition-colors"
-                >
-                  Apply Location
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-
+      {/* Material Design 3 Location Bottom Sheet */}
+      <LocationBottomSheet
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        selectedState={selectedState}
+        setSelectedState={setSelectedState}
+        selectedDistrict={selectedDistrict}
+        setSelectedDistrict={setSelectedDistrict}
+      />
     </header>
   );
 };

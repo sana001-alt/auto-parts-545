@@ -28,6 +28,8 @@ import {
   onSnapshot, 
   serverTimestamp,
   increment,
+  arrayUnion,
+  arrayRemove,
   enableIndexedDbPersistence
 } from 'firebase/firestore';
 
@@ -469,29 +471,61 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   return null;
 }
 
+export function subscribeToUserProfile(uid: string, callback: (profile: UserProfile | null) => void) {
+  try {
+    const docRef = doc(db, 'users', uid);
+    return onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        callback(docSnap.data() as UserProfile);
+      } else {
+        callback(null);
+      }
+    });
+  } catch (err) {
+    console.warn('Error subscribing to user profile:', err);
+    return () => () => {};
+  }
+}
+
 // Realtime Chat Helpers
 export function subscribeToUserChats(userId: string, callback: (chats: Chat[]) => void) {
   try {
     const chatsRef = collection(db, 'chats');
     return onSnapshot(chatsRef, (snapshot) => {
-      const chats: Chat[] = [];
+      const rawChats: Chat[] = [];
       snapshot.forEach(d => {
         const data = d.data() as Chat;
         const isParticipant = data.buyerId === userId || data.sellerId === userId;
-        const isBlocked = data.blockedBy && data.blockedBy.includes(userId);
         const isDeleted = data.deletedBy && data.deletedBy.includes(userId);
 
-        if (isParticipant && !isBlocked && !isDeleted) {
-          chats.push({ id: d.id, ...data });
+        if (isParticipant && !isDeleted) {
+          // Only show conversations with at least one real message (no empty chats)
+          const isRealMsg = data.lastMessage && !data.lastMessage.startsWith('Chat started for');
+          if (isRealMsg) {
+            rawChats.push({ id: d.id, ...data });
+          }
         }
       });
 
-      // Sort: pinned first, then by updatedAt desc
+      // Deduplicate chats
+      const seen = new Set<string>();
+      const chats: Chat[] = [];
+      for (const c of rawChats) {
+        const key = c.id || `${c.listingId}_${c.buyerId}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          chats.push(c);
+        }
+      }
+
+      // Sort: pinned first, then by latest message time desc
       chats.sort((a, b) => {
         const aPinned = a.pinnedBy?.includes(userId) ? 1 : 0;
         const bPinned = b.pinnedBy?.includes(userId) ? 1 : 0;
         if (aPinned !== bPinned) return bPinned - aPinned;
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        const timeA = new Date(a.lastMessageTime || a.updatedAt || 0).getTime();
+        const timeB = new Date(b.lastMessageTime || b.updatedAt || 0).getTime();
+        return timeB - timeA;
       });
 
       callback(chats);
@@ -525,7 +559,7 @@ export async function getOrCreateChat(buyer: UserProfile, seller: { id: string; 
         sellerId: seller.id || 'seller',
         sellerName: seller.name || 'Seller',
         sellerPhoto: seller.photo || '',
-        lastMessage: 'Chat started for ' + (listing.title || 'listing'),
+        lastMessage: '',
         lastMessageTime: new Date().toISOString(),
         unreadCountBuyer: 0,
         unreadCountSeller: 0,
@@ -647,7 +681,8 @@ export async function sendChatMessage(
     const updates: any = {
       lastMessage: previewText,
       lastMessageTime: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      deletedBy: []
     };
 
     if (isBuyer) {
@@ -818,32 +853,36 @@ export async function reportListingInFirestore(listingId: string, listingTitle: 
 export async function blockUserInFirestore(currentUserId: string, targetUserId: string, chatId?: string) {
   try {
     const userRef = doc(db, 'users', currentUserId);
-    const userSnap = await getDoc(userRef);
-    if (userSnap.exists()) {
-      const data = userSnap.data() as UserProfile;
-      const blocked = data.blockedUsers || [];
-      if (!blocked.includes(targetUserId)) {
-        await updateDoc(userRef, {
-          blockedUsers: [...blocked, targetUserId]
-        });
-      }
-    }
+    await setDoc(userRef, {
+      blockedUsers: arrayUnion(targetUserId)
+    }, { merge: true });
 
     if (chatId) {
       const chatRef = doc(db, 'chats', chatId);
-      const chatSnap = await getDoc(chatRef);
-      if (chatSnap.exists()) {
-        const chatData = chatSnap.data() as Chat;
-        const blockedBy = chatData.blockedBy || [];
-        if (!blockedBy.includes(currentUserId)) {
-          await updateDoc(chatRef, {
-            blockedBy: [...blockedBy, currentUserId]
-          });
-        }
-      }
+      await setDoc(chatRef, {
+        blockedBy: arrayUnion(currentUserId)
+      }, { merge: true });
     }
   } catch (err) {
-    console.warn('Error blocking user:', err);
+    console.error('Error blocking user in Firestore:', err);
+  }
+}
+
+export async function unblockUserInFirestore(currentUserId: string, targetUserId: string, chatId?: string) {
+  try {
+    const userRef = doc(db, 'users', currentUserId);
+    await setDoc(userRef, {
+      blockedUsers: arrayRemove(targetUserId)
+    }, { merge: true });
+
+    if (chatId) {
+      const chatRef = doc(db, 'chats', chatId);
+      await setDoc(chatRef, {
+        blockedBy: arrayRemove(currentUserId)
+      }, { merge: true });
+    }
+  } catch (err) {
+    console.error('Error unblocking user in Firestore:', err);
   }
 }
 
@@ -883,16 +922,20 @@ export async function muteChatInFirestore(chatId: string, userId: string, mute: 
 
 export async function deleteChatInFirestore(chatId: string, userId: string) {
   try {
+    // 1. Delete all messages for this chatId from Firestore
+    const messagesQuery = query(collection(db, 'messages'), where('chatId', '==', chatId));
+    const messagesSnap = await getDocs(messagesQuery);
+    const deletePromises: Promise<void>[] = [];
+    messagesSnap.forEach((msgDoc) => {
+      deletePromises.push(deleteDoc(doc(db, 'messages', msgDoc.id)));
+    });
+    await Promise.all(deletePromises);
+
+    // 2. Delete the chat room document from Firestore
     const chatRef = doc(db, 'chats', chatId);
-    const snap = await getDoc(chatRef);
-    if (snap.exists()) {
-      const data = snap.data() as Chat;
-      const current = data.deletedBy || [];
-      const updated = Array.from(new Set([...current, userId]));
-      await updateDoc(chatRef, { deletedBy: updated });
-    }
+    await deleteDoc(chatRef);
   } catch (err) {
-    console.warn('Error deleting chat for user:', err);
+    console.warn('Error deleting chat from Firestore:', err);
   }
 }
 

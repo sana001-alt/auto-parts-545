@@ -157,6 +157,28 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             </span>
           </button>
 
+          {/* Quick Demo Sign-In as Admin (autoparts2@gmail.com) */}
+          <div className="pt-2 border-t border-slate-800/80 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                const adminProfile: UserProfile = {
+                  uid: 'admin_autoparts2',
+                  displayName: 'Super Admin (AutoParts)',
+                  email: 'autoparts2@gmail.com',
+                  phone: '+91 98110 45892',
+                  verified: true,
+                  createdAt: new Date().toISOString()
+                };
+                onSuccess(adminProfile);
+              }}
+              className="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-amber-500/20 hover:from-amber-500/30 hover:to-amber-500/30 border border-amber-500/40 text-amber-300 font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
+            >
+              <Shield className="w-4 h-4 text-amber-400" />
+              <span>Sign In as Super Admin (autoparts2@gmail.com)</span>
+            </button>
+          </div>
+
         </div>
 
       </div>

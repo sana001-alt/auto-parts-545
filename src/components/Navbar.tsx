@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { UserProfile, AppNotification } from '../types';
 import { INDIA_STATES_DISTRICTS } from '../data/indiaLocations';
+import { auth } from '../lib/firebase';
 
 interface NavbarProps {
   currentUser: UserProfile | null;
@@ -40,6 +41,7 @@ interface NavbarProps {
   onOpenCloudinarySettings: () => void;
   onLogout: () => void;
   onOpenFiltersModal?: () => void;
+  onOpenAdminPanel?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -62,7 +64,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenProfile,
   onOpenCloudinarySettings,
   onLogout,
-  onOpenFiltersModal
+  onOpenFiltersModal,
+  onOpenAdminPanel
 }) => {
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -70,6 +73,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   const availableDistricts = selectedState && INDIA_STATES_DISTRICTS[selectedState] 
     ? INDIA_STATES_DISTRICTS[selectedState] 
     : [];
+
+  const isAdmin = auth.currentUser?.email === 'autoparts2@gmail.com' || currentUser?.email === 'autoparts2@gmail.com';
 
   return (
     <header className="sticky top-0 z-40 bg-[#0F172A] text-white border-b border-slate-800 transition-colors duration-200 shadow-md">
@@ -81,9 +86,21 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="text-slate-200">India's #1 Marketplace for Used & New Auto Spare Parts • 100% Verified Sellers</span>
           </span>
           <div className="flex items-center gap-4 text-slate-400 text-[11px]">
-            <button onClick={onOpenCloudinarySettings} className="hover:text-cyan-400 flex items-center gap-1 cursor-pointer transition-colors">
-              <Cloud className="w-3 h-3 text-cyan-400" /> Cloudinary CDN
-            </button>
+            {isAdmin && (
+              <>
+                {onOpenAdminPanel && (
+                  <button 
+                    onClick={onOpenAdminPanel} 
+                    className="bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 font-black px-2.5 py-0.5 rounded-full flex items-center gap-1 cursor-pointer hover:brightness-110 transition-all shadow-sm"
+                  >
+                    <ShieldCheck className="w-3 h-3 text-slate-950" /> Super Admin Control Panel
+                  </button>
+                )}
+                <button onClick={onOpenCloudinarySettings} className="hover:text-cyan-400 flex items-center gap-1 cursor-pointer transition-colors">
+                  <Cloud className="w-3 h-3 text-cyan-400" /> Cloudinary CDN
+                </button>
+              </>
+            )}
             <span>Mayapuri • Kurla • Pudupet • Shivajinagar</span>
           </div>
         </div>
@@ -278,12 +295,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <UserIcon className="w-3.5 h-3.5 text-cyan-400" /> My Profile & Listings
                   </button>
 
-                  <button
-                    onClick={() => { setShowUserDropdown(false); onOpenCloudinarySettings(); }}
-                    className="w-full text-left px-4 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800 flex items-center gap-2"
-                  >
-                    <Cloud className="w-3.5 h-3.5 text-cyan-400" /> Cloudinary Settings
-                  </button>
+                  {isAdmin && (
+                    <>
+                      {onOpenAdminPanel && (
+                        <button
+                          onClick={() => { setShowUserDropdown(false); onOpenAdminPanel(); }}
+                          className="w-full text-left px-4 py-2 text-xs font-bold text-amber-300 hover:bg-amber-950/30 flex items-center gap-2 border-b border-slate-800"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> Super Admin Control Panel
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { setShowUserDropdown(false); onOpenCloudinarySettings(); }}
+                        className="w-full text-left px-4 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800 flex items-center gap-2"
+                      >
+                        <Cloud className="w-3.5 h-3.5 text-cyan-400" /> Cloudinary Settings
+                      </button>
+                    </>
+                  )}
 
                   <div className="border-t border-slate-800 mt-1 pt-1">
                     <button

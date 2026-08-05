@@ -46,6 +46,13 @@ export interface UserProfile {
   reviewCount?: number;
   totalListings?: number;
   soldCount?: number;
+  whatsappNumber?: string;
+  address?: string;
+  language?: string;
+  responseRate?: string;
+  responseTime?: string;
+  followersCount?: number;
+  followingCount?: number;
   blockedUsers?: string[];
   lastSeen?: string;
   isOnline?: boolean;
@@ -74,7 +81,7 @@ export interface Listing {
   sellerPhone?: string;
   sellerPhoto?: string;
   sellerVerified?: boolean;
-  status: 'active' | 'sold' | 'reserved';
+  status: 'active' | 'pending' | 'rejected' | 'sold' | 'reserved';
   views: number;
   reportCount?: number;
   createdAt: string;
